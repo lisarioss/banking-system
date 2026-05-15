@@ -1,8 +1,8 @@
 package com.banksystem.transactionservice.dto;
 
 import com.banksystem.transactionservice.entity.Transaction;
-import com.banksystem.transactionservice.entity.TransactionStatus;
-import com.banksystem.transactionservice.entity.TransactionType;
+import com.banksystem.transactionservice.enums.TransactionStatus;
+import com.banksystem.transactionservice.enums.TransactionType;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -22,9 +22,8 @@ public class TransactionResponse {
     private TransactionType type;
     private TransactionStatus status;
     private String description;
-    private String referenceCode;
     private LocalDateTime createdAt;
-    private LocalDateTime completedAt;
+    private LocalDateTime updatedAt;
 
     public static TransactionResponse fromEntity(Transaction transaction) {
         return new TransactionResponse(
@@ -35,9 +34,8 @@ public class TransactionResponse {
             transaction.getType(),
             transaction.getStatus(),
             transaction.getDescription(),
-            transaction.getReferenceCode(),
             transaction.getCreatedAt(),
-            transaction.getCompletedAt()
+            transaction.getUpdatedAt()
         );
     }
 }

@@ -1,5 +1,7 @@
 package com.banksystem.transactionservice.entity;
 
+import com.banksystem.transactionservice.enums.TransactionStatus;
+import com.banksystem.transactionservice.enums.TransactionType;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -39,20 +41,20 @@ public class Transaction {
     @Column(length = 500)
     private String description;
 
-    @Column(unique = true)
-    private String referenceCode;
-
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    @Column(name = "completed_at")
-    private LocalDateTime completedAt;
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
 
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
-        if (referenceCode == null) {
-            referenceCode = "TXN-" + System.currentTimeMillis();
-        }
+        updatedAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
     }
 }

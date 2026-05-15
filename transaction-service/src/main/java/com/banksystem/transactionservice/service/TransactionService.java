@@ -1,23 +1,20 @@
 package com.banksystem.transactionservice.service;
 
-import com.banksystem.transactionservice.dto.DepositRequest;
+import com.banksystem.transactionservice.dto.TransactionRequest;
 import com.banksystem.transactionservice.dto.TransactionResponse;
-import com.banksystem.transactionservice.dto.TransferRequest;
 import com.banksystem.transactionservice.entity.Transaction;
-import com.banksystem.transactionservice.entity.TransactionStatus;
-import com.banksystem.transactionservice.entity.TransactionType;
-import com.banksystem.transactionservice.exception.TransactionFailedException;
+import com.banksystem.transactionservice.enums.TransactionStatus;
 import com.banksystem.transactionservice.exception.TransactionNotFoundException;
 import com.banksystem.transactionservice.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
@@ -27,49 +24,27 @@ import java.util.stream.Collectors;
 public class TransactionService {
 
     private final TransactionRepository transactionRepository;
-    private final RabbitTemplate rabbitTemplate;
+    private final KafkaTemplate<String, String> kafkaTemplate;
 
-    public TransactionResponse transfer(TransferRequest request) {
-        log.info("Iniciando transferência de {} para {}", request.getFromAccountId(), request.getToAccountId());
-
-        if (request.getFromAccountId().equals(request.getToAccountId())) {
-            throw new TransactionFailedException("Não é possível transferir para a mesma conta");
-        }
+    public TransactionResponse createTransaction(TransactionRequest request) {
+        log.info("Criando nova transação: {} -> {}", request.getFromAccountId(), request.getToAccountId());
 
         Transaction transaction = Transaction.builder()
             .fromAccountId(request.getFromAccountId())
             .toAccountId(request.getToAccountId())
             .amount(request.getAmount())
-            .type(TransactionType.TRANSFER)
-            .status(TransactionStatus.PROCESSING)
+            .type(request.getType())
+            .status(TransactionStatus.PENDING)
             .description(request.getDescription())
             .build();
 
         Transaction savedTransaction = transactionRepository.save(transaction);
-        
-        // Enviar para fila de processamento
-        rabbitTemplate.convertAndSend("transactions.exchange", "transactions.transfer", savedTransaction.getId());
 
-        return TransactionResponse.fromEntity(savedTransaction);
-    }
+        // Publicar evento no Kafka
+        kafkaTemplate.send("transaction-events", 
+            "Transação criada: " + savedTransaction.getId());
 
-    public TransactionResponse deposit(DepositRequest request) {
-        log.info("Iniciando depósito de {} na conta {}", request.getAmount(), request.getAccountId());
-
-        Transaction transaction = Transaction.builder()
-            .fromAccountId(request.getAccountId())
-            .toAccountId(request.getAccountId())
-            .amount(request.getAmount())
-            .type(TransactionType.DEPOSIT)
-            .status(TransactionStatus.PROCESSING)
-            .description(request.getDescription())
-            .build();
-
-        Transaction savedTransaction = transactionRepository.save(transaction);
-        
-        // Enviar para fila de processamento
-        rabbitTemplate.convertAndSend("transactions.exchange", "transactions.deposit", savedTransaction.getId());
-
+        log.info("Transação criada com sucesso: {}", savedTransaction.getId());
         return TransactionResponse.fromEntity(savedTransaction);
     }
 
@@ -79,38 +54,46 @@ public class TransactionService {
         return TransactionResponse.fromEntity(transaction);
     }
 
-    public List<TransactionResponse> getAccountTransactionHistory(Long accountId) {
-        log.info("Buscando histórico de transações da conta {}", accountId);
-        return transactionRepository.findAccountTransactionHistory(accountId).stream()
-            .map(TransactionResponse::fromEntity)
-            .collect(Collectors.toList());
+    public Page<TransactionResponse> getTransactionsByFromAccount(Long fromAccountId, Pageable pageable) {
+        Page<Transaction> transactions = transactionRepository.findByFromAccountId(fromAccountId, pageable);
+        return new PageImpl<>(
+            transactions.getContent().stream()
+                .map(TransactionResponse::fromEntity)
+                .collect(Collectors.toList()),
+            pageable,
+            transactions.getTotalElements()
+        );
     }
 
-    public List<TransactionResponse> getPendingTransactions() {
-        return transactionRepository.findByStatusOrderByCreatedAtDesc(TransactionStatus.PENDING).stream()
-            .map(TransactionResponse::fromEntity)
-            .collect(Collectors.toList());
+    public Page<Transaction> getTransactionsByToAccount(Long toAccountId, Pageable pageable) {
+        return transactionRepository.findByToAccountId(toAccountId, pageable);
     }
 
-    public void completeTransaction(Long transactionId) {
-        Transaction transaction = transactionRepository.findById(transactionId)
+    public TransactionResponse completeTransaction(Long id) {
+        Transaction transaction = transactionRepository.findById(id)
             .orElseThrow(() -> new TransactionNotFoundException("Transação não encontrada"));
-        
+
         transaction.setStatus(TransactionStatus.COMPLETED);
-        transaction.setCompletedAt(LocalDateTime.now());
-        transactionRepository.save(transaction);
-        
-        log.info("Transação {} completada com sucesso", transactionId);
+        Transaction updatedTransaction = transactionRepository.save(transaction);
+
+        kafkaTemplate.send("transaction-events", 
+            "Transação completada: " + updatedTransaction.getId());
+
+        log.info("Transação completada: {}", updatedTransaction.getId());
+        return TransactionResponse.fromEntity(updatedTransaction);
     }
 
-    public void failTransaction(Long transactionId, String reason) {
-        Transaction transaction = transactionRepository.findById(transactionId)
+    public TransactionResponse cancelTransaction(Long id) {
+        Transaction transaction = transactionRepository.findById(id)
             .orElseThrow(() -> new TransactionNotFoundException("Transação não encontrada"));
-        
-        transaction.setStatus(TransactionStatus.FAILED);
-        transaction.setDescription(reason);
-        transactionRepository.save(transaction);
-        
-        log.error("Transação {} falhou: {}", transactionId, reason);
+
+        transaction.setStatus(TransactionStatus.CANCELLED);
+        Transaction updatedTransaction = transactionRepository.save(transaction);
+
+        kafkaTemplate.send("transaction-events", 
+            "Transação cancelada: " + updatedTransaction.getId());
+
+        log.info("Transação cancelada: {}", updatedTransaction.getId());
+        return TransactionResponse.fromEntity(updatedTransaction);
     }
 }

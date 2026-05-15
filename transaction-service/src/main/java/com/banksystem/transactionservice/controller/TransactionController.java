@@ -1,16 +1,15 @@
 package com.banksystem.transactionservice.controller;
 
-import com.banksystem.transactionservice.dto.DepositRequest;
+import com.banksystem.transactionservice.dto.TransactionRequest;
 import com.banksystem.transactionservice.dto.TransactionResponse;
-import com.banksystem.transactionservice.dto.TransferRequest;
 import com.banksystem.transactionservice.service.TransactionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/transactions")
@@ -20,16 +19,11 @@ public class TransactionController {
 
     private final TransactionService transactionService;
 
-    @PostMapping("/transfer")
-    public ResponseEntity<TransactionResponse> transfer(@Valid @RequestBody TransferRequest request) {
-        TransactionResponse response = transactionService.transfer(request);
-        return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
-    }
-
-    @PostMapping("/deposit")
-    public ResponseEntity<TransactionResponse> deposit(@Valid @RequestBody DepositRequest request) {
-        TransactionResponse response = transactionService.deposit(request);
-        return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
+    @PostMapping
+    public ResponseEntity<TransactionResponse> createTransaction(
+        @Valid @RequestBody TransactionRequest request) {
+        TransactionResponse response = transactionService.createTransaction(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @GetMapping("/{id}")
@@ -38,15 +32,23 @@ public class TransactionController {
         return ResponseEntity.ok(response);
     }
 
-    @GetMapping("/history/{accountId}")
-    public ResponseEntity<List<TransactionResponse>> getTransactionHistory(@PathVariable Long accountId) {
-        List<TransactionResponse> response = transactionService.getAccountTransactionHistory(accountId);
+    @GetMapping("/account/{accountId}")
+    public ResponseEntity<Page<TransactionResponse>> getAccountTransactions(
+        @PathVariable Long accountId,
+        Pageable pageable) {
+        Page<TransactionResponse> response = transactionService.getTransactionsByFromAccount(accountId, pageable);
         return ResponseEntity.ok(response);
     }
 
-    @GetMapping("/pending")
-    public ResponseEntity<List<TransactionResponse>> getPendingTransactions() {
-        List<TransactionResponse> response = transactionService.getPendingTransactions();
+    @PutMapping("/{id}/complete")
+    public ResponseEntity<TransactionResponse> completeTransaction(@PathVariable Long id) {
+        TransactionResponse response = transactionService.completeTransaction(id);
+        return ResponseEntity.ok(response);
+    }
+
+    @PutMapping("/{id}/cancel")
+    public ResponseEntity<TransactionResponse> cancelTransaction(@PathVariable Long id) {
+        TransactionResponse response = transactionService.cancelTransaction(id);
         return ResponseEntity.ok(response);
     }
 }
