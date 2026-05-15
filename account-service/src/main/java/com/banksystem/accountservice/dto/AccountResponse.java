@@ -1,6 +1,7 @@
 package com.banksystem.accountservice.dto;
 
 import com.banksystem.accountservice.entity.Account;
+import com.banksystem.accountservice.entity.AccountType;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -12,12 +13,14 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class AccountResponse {
+
     private Long id;
-    private Long userId;
     private String accountNumber;
-    private String accountType;
+    private String accountDigit;
+    private Long userId;
+    private AccountType accountType;
     private BigDecimal balance;
-    private BigDecimal limit;
+    private BigDecimal creditLimit;
     private Boolean active;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -25,11 +28,12 @@ public class AccountResponse {
     public static AccountResponse fromEntity(Account account) {
         return new AccountResponse(
             account.getId(),
-            account.getUserId(),
             account.getAccountNumber(),
+            account.getAccountDigit(),
+            account.getUserId(),
             account.getAccountType(),
             account.getBalance(),
-            account.getLimit(),
+            account.getCreditLimit(),
             account.getActive(),
             account.getCreatedAt(),
             account.getUpdatedAt()

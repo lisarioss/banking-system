@@ -1,7 +1,6 @@
 package com.banksystem.accountservice.controller;
 
-import com.banksystem.accountservice.dto.AccountResponse;
-import com.banksystem.accountservice.dto.CreateAccountRequest;
+import com.banksystem.accountservice.dto.*;
 import com.banksystem.accountservice.service.AccountService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -9,7 +8,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.math.BigDecimal;
 import java.util.List;
 
 @RestController
@@ -44,27 +42,25 @@ public class AccountController {
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping("/user/{userId}/active")
+    public ResponseEntity<List<AccountResponse>> getActiveAccountsByUserId(@PathVariable Long userId) {
+        List<AccountResponse> response = accountService.getActiveAccountsByUserId(userId);
+        return ResponseEntity.ok(response);
+    }
+
     @PostMapping("/{id}/deposit")
-    public ResponseEntity<AccountResponse> deposit(
+    public ResponseEntity<AccountOperationResponse> deposit(
         @PathVariable Long id,
-        @RequestParam BigDecimal amount) {
-        AccountResponse response = accountService.deposit(id, amount);
+        @Valid @RequestBody DepositRequest request) {
+        AccountOperationResponse response = accountService.deposit(id, request);
         return ResponseEntity.ok(response);
     }
 
     @PostMapping("/{id}/withdraw")
-    public ResponseEntity<AccountResponse> withdraw(
+    public ResponseEntity<AccountOperationResponse> withdraw(
         @PathVariable Long id,
-        @RequestParam BigDecimal amount) {
-        AccountResponse response = accountService.withdraw(id, amount);
-        return ResponseEntity.ok(response);
-    }
-
-    @PutMapping("/{id}/limit")
-    public ResponseEntity<AccountResponse> updateLimit(
-        @PathVariable Long id,
-        @RequestParam BigDecimal newLimit) {
-        AccountResponse response = accountService.updateLimit(id, newLimit);
+        @Valid @RequestBody WithdrawRequest request) {
+        AccountOperationResponse response = accountService.withdraw(id, request);
         return ResponseEntity.ok(response);
     }
 

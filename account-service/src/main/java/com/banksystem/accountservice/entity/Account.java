@@ -19,20 +19,24 @@ public class Account {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
-    private Long userId;
-
     @Column(nullable = false, unique = true)
     private String accountNumber;
 
-    @Column(nullable = false)
-    private String accountType; // CHECKING, SAVINGS
+    @Column(nullable = false, unique = true)
+    private String accountDigit;
 
     @Column(nullable = false)
+    private Long userId;
+
+    @Column(nullable = false)
+    @Enumerated(EnumType.STRING)
+    private AccountType accountType;
+
+    @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal balance;
 
-    @Column(nullable = false)
-    private BigDecimal limit;
+    @Column(nullable = false, precision = 19, scale = 2)
+    private BigDecimal creditLimit;
 
     @Column(nullable = false)
     private Boolean active = true;
