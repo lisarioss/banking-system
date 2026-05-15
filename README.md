@@ -1,4 +1,4 @@
-# Bank System
+# Banking System
 
 Projeto de microsserviços bancários em Java Spring Boot.
 
